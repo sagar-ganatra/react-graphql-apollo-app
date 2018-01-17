@@ -8,23 +8,87 @@ const port = process.env.PORT || 8080;
 
 const app = express();
 
-const schema = new gql.GraphQLSchema({
-    query: new gql.GraphQLObjectType({
-        name: 'Root',
-        fields: {
-            message: {
-                type: gql.GraphQLString,
-                resolve() {
-                    return 'Hello World';
-                }
-            }
-        }
-    })
-});
+const COURSES = require('./data/courses');
 
-app.use('/graphql', graphqlHTTP({
-    schema,
-    graphiql: true
-}));
+// const schema = new gql.GraphQLSchema({
+//     query: new gql.GraphQLObjectType({
+//         name: 'Root',
+//         fields: {
+//             message: {
+//                 type: gql.GraphQLString,
+//                 resolve() {
+//                     return 'Hello World';
+//                 }
+//             }
+//         }
+//     })
+// });
+
+const typeDefs = `
+    type CourseType {
+        id: ID!
+        name: String
+        description: String
+        level: String
+    }
+
+    input CourseInput {
+        id: ID
+        name: String!
+        description: String!
+        level: String
+    }
+
+    type Query {
+        allCourses: [CourseType]
+    }
+
+    type Mutation {
+        createCourse(input: CourseInput): CourseType
+        deleteCourse(id: ID): CourseType
+    }
+`;
+
+const resolvers = {
+    Query: {
+        allCourses: () => {
+            return COURSES;
+        }
+    },
+    Mutation: {
+        createCourse: (_, { input }) => {
+            let { id, name, description, level } = input;
+            COURSES.push({
+                id,
+                name,
+                description,
+                level
+            });
+            return input;
+        },
+        deleteCourse: (_, { id }) => {
+            const courseIndex = COURSES.findIndex(course => {
+                return course.id == parseInt(id, 10);
+            });
+            if (~courseIndex) {
+                const foundCourse = COURSES[courseIndex];
+                COURSES.splice(courseIndex, 1);
+                return foundCourse;
+            }
+            return null;
+        }
+    }
+};
+
+const schema = makeExecutableSchema({ typeDefs, resolvers});
+
+app.use(
+    '/graphql',
+    cors(),
+    graphqlHTTP({
+        schema,
+        graphiql: true
+    })
+);
 
 app.listen(port);
